@@ -32,9 +32,20 @@
       disabled={disabled || revealed.includes(i)}
     >
       {#if state === 'mine'}
-        <span class="icon bomb">💣</span>
+        <svg class="icon bomb" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="14" r="8" fill="#1f1f1f"/>
+          <circle cx="12" cy="14" r="6" fill="#2a2a2a"/>
+          <rect x="11" y="2" width="2" height="5" fill="#666"/>
+          <path d="M14 4c2 -2 4 -1 4 1" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="9" cy="11" r="1.5" fill="#4a4a4a"/>
+        </svg>
       {:else if state === 'safe'}
-        <span class="icon gem">💎</span>
+        <svg class="icon gem" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L2 9l10 13 10-13L12 2z" fill="#22c55e"/>
+          <path d="M12 2L2 9h20L12 2z" fill="#4ade80"/>
+          <path d="M12 22L2 9h10v13z" fill="#16a34a"/>
+          <path d="M7 9l5-7 5 7H7z" fill="#86efac" opacity="0.5"/>
+        </svg>
       {/if}
     </button>
   {/each}
@@ -99,15 +110,20 @@
   
   .icon {
     animation: pop 0.25s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    pointer-events: none;
+    overflow: visible;
   }
   
   .icon.gem {
-    font-size: 1.8rem;
+    width: 55%;
+    height: 55%;
+    filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.8));
   }
   
   .icon.bomb {
-    font-size: 2.2rem;
-    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+    width: 60%;
+    height: 60%;
+    filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.8));
   }
   
   @keyframes pop {

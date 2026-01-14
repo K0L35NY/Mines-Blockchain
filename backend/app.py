@@ -1,11 +1,25 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from game_engine import MinesGame, verify_game
+import blockchain
 
 app = Flask(__name__)
 CORS(app)
 
 games = {}
+
+
+@app.route('/blockchain/info', methods=['GET'])
+def blockchain_info():
+    """Get blockchain connection info"""
+    return jsonify(blockchain.get_contract_info())
+
+
+@app.route('/blockchain/game/<game_id>', methods=['GET'])
+def blockchain_game(game_id):
+    """Get on-chain commitment for a game"""
+    result = blockchain.get_game_commitment(game_id)
+    return jsonify(result)
 
 
 @app.route('/game/new', methods=['POST'])
@@ -27,12 +41,16 @@ def new_game():
     game_id = game.seed_hash[:16]
     games[game_id] = game
     
+    # Commit seed hash to blockchain (async, non-blocking response)
+    blockchain_result = blockchain.commit_game(game_id, game.seed_hash)
+    
     return jsonify({
         'game_id': game_id,
         'grid_size': grid_size,
         'mine_count': mine_count,
         'seed_hash': game.seed_hash,
-        'client_seed': game.client_seed
+        'client_seed': game.client_seed,
+        'blockchain': blockchain_result
     })
 
 
@@ -54,6 +72,11 @@ def reveal_tile():
     if 'error' in result:
         return jsonify(result), 400
     
+    # If game ended (hit mine), reveal on blockchain
+    if result.get('hit_mine'):
+        blockchain_reveal = blockchain.reveal_game(game_id, game.server_seed)
+        result['blockchain'] = blockchain_reveal
+    
     return jsonify(result)
 
 
@@ -72,6 +95,10 @@ def cashout():
     result = game.cashout()
     if 'error' in result:
         return jsonify(result), 400
+    
+    # Reveal on blockchain after cashout
+    blockchain_reveal = blockchain.reveal_game(game_id, game.server_seed)
+    result['blockchain'] = blockchain_reveal
     
     return jsonify(result)
 
