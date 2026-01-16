@@ -1,7 +1,6 @@
 <script>
   import Grid from './lib/Grid.svelte'
   import { newGame, revealTile, cashout, verifyGame } from './lib/api.js'
-  import { getBlockchainInfo, getGameCommitment, formatTxHash, getExplorerUrl } from './lib/blockchain.js'
   
   let gridSize = 5
   let mineCount = 3
@@ -16,14 +15,6 @@
   let gameOver = false
   let gameStarted = false
   
-  // Blockchain state
-  let blockchainInfo = null
-  let commitTxHash = ''
-  let commitExplorerUrl = ''
-  let revealTxHash = ''
-  let revealExplorerUrl = ''
-  let onChainCommitment = null
-  
   let activeTab = 'play'
   
   let verifyServerSeed = ''
@@ -31,12 +22,6 @@
   let verifyGridSize = 5
   let verifyMineCount = 3
   let verifyResult = null
-  
-  // Fetch blockchain info on mount
-  async function fetchBlockchainInfo() {
-    blockchainInfo = await getBlockchainInfo()
-  }
-  fetchBlockchainInfo()
   
   async function startGame() {
     const seed = clientSeed.trim() || null
@@ -56,18 +41,6 @@
     gameOver = false
     serverSeed = ''
     gameStarted = true
-    
-    // Capture blockchain commit info
-    if (res.blockchain?.committed) {
-      commitTxHash = res.blockchain.tx_hash
-      commitExplorerUrl = res.blockchain.explorer_url
-    } else {
-      commitTxHash = ''
-      commitExplorerUrl = ''
-    }
-    revealTxHash = ''
-    revealExplorerUrl = ''
-    onChainCommitment = null
   }
   
   async function handleReveal(e) {
@@ -84,26 +57,11 @@
       mines = res.mines
       serverSeed = res.server_seed
       gameOver = true
-      
-      // Capture blockchain reveal info
-      if (res.blockchain?.revealed) {
-        revealTxHash = res.blockchain.tx_hash
-        revealExplorerUrl = res.blockchain.explorer_url
-      }
-      
-      // Fetch on-chain commitment for verification display
-      fetchOnChainCommitment()
     } else {
       multiplier = res.multiplier
       if (res.game_won) {
         gameOver = true
       }
-    }
-  }
-  
-  async function fetchOnChainCommitment() {
-    if (gameId) {
-      onChainCommitment = await getGameCommitment(gameId)
     }
   }
   
@@ -116,15 +74,6 @@
     mines = res.mines
     serverSeed = res.server_seed
     gameOver = true
-    
-    // Capture blockchain reveal info
-    if (res.blockchain?.revealed) {
-      revealTxHash = res.blockchain.tx_hash
-      revealExplorerUrl = res.blockchain.explorer_url
-    }
-    
-    // Fetch on-chain commitment for verification display
-    fetchOnChainCommitment()
   }
   
   function resetGame() {
@@ -136,11 +85,6 @@
     multiplier = 1.0
     gameOver = false
     gameStarted = false
-    commitTxHash = ''
-    commitExplorerUrl = ''
-    revealTxHash = ''
-    revealExplorerUrl = ''
-    onChainCommitment = null
   }
   
   async function handleVerify() {
@@ -169,11 +113,6 @@
     <header>
       <h1>MINES</h1>
       <span class="badge">Provably Fair</span>
-      {#if blockchainInfo}
-        <span class="badge blockchain" class:connected={blockchainInfo.connected}>
-          {blockchainInfo.connected ? '⛓️ Sepolia' : '⚠️ Offline'}
-        </span>
-      {/if}
     </header>
     
     {#if !gameStarted}
@@ -284,16 +223,6 @@
           </div>
         </div>
         
-        {#if commitTxHash}
-          <div class="blockchain-status">
-            <span class="chain-icon">⛓️</span>
-            <span class="chain-label">On-chain commitment:</span>
-            <a href={commitExplorerUrl} target="_blank" rel="noopener" class="tx-link">
-              {formatTxHash(commitTxHash)} ↗
-            </a>
-          </div>
-        {/if}
-        
         <Grid 
           size={gridSize} 
           {revealed} 
@@ -335,46 +264,6 @@
               </div>
               <p class="hint">Hash the server seed with SHA-256 to verify it matches the seed hash shown at game start.</p>
             </div>
-            
-            {#if commitTxHash || onChainCommitment}
-              <div class="blockchain-verification">
-                <h4>⛓️ Blockchain Verification</h4>
-                
-                {#if commitTxHash}
-                  <div class="chain-row">
-                    <span class="label">Commitment TX</span>
-                    <a href={commitExplorerUrl} target="_blank" rel="noopener" class="tx-link">
-                      {formatTxHash(commitTxHash)} ↗
-                    </a>
-                  </div>
-                {/if}
-                
-                {#if revealTxHash}
-                  <div class="chain-row">
-                    <span class="label">Reveal TX</span>
-                    <a href={revealExplorerUrl} target="_blank" rel="noopener" class="tx-link">
-                      {formatTxHash(revealTxHash)} ↗
-                    </a>
-                  </div>
-                {/if}
-                
-                {#if onChainCommitment && !onChainCommitment.error}
-                  <div class="chain-row">
-                    <span class="label">On-Chain Hash</span>
-                    <code class="small">{onChainCommitment.seed_hash}</code>
-                  </div>
-                  <div class="chain-row">
-                    <span class="label">Committed At</span>
-                    <span>{new Date(onChainCommitment.timestamp * 1000).toLocaleString()}</span>
-                  </div>
-                {/if}
-                
-                <p class="chain-hint">
-                  The seed hash was committed to Sepolia blockchain <em>before</em> your first move. 
-                  Anyone can verify on <a href={blockchainInfo?.explorer_url} target="_blank" rel="noopener">Etherscan</a>.
-                </p>
-              </div>
-            {/if}
           </div>
           
           <button class="btn primary" on:click={resetGame}>New Game</button>
@@ -721,106 +610,6 @@
     color: #6e7681;
     margin-top: 0.5rem;
     line-height: 1.4;
-  }
-  
-  /* Blockchain UI */
-  .badge.blockchain {
-    background: rgba(239, 68, 68, 0.2);
-    border-color: rgba(239, 68, 68, 0.3);
-    color: #ef4444;
-  }
-  
-  .badge.blockchain.connected {
-    background: rgba(59, 130, 246, 0.2);
-    border-color: rgba(59, 130, 246, 0.3);
-    color: #60a5fa;
-  }
-  
-  .blockchain-status {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    background: rgba(59, 130, 246, 0.1);
-    border: 1px solid rgba(59, 130, 246, 0.2);
-    border-radius: 8px;
-    font-size: 0.8rem;
-  }
-  
-  .chain-icon {
-    font-size: 1rem;
-  }
-  
-  .chain-label {
-    color: #8b949e;
-  }
-  
-  .tx-link {
-    font-family: 'JetBrains Mono', monospace;
-    color: #60a5fa;
-    text-decoration: none;
-    transition: color 0.2s;
-  }
-  
-  .tx-link:hover {
-    color: #93c5fd;
-    text-decoration: underline;
-  }
-  
-  .blockchain-verification {
-    margin-top: 1rem;
-    padding: 1rem;
-    background: rgba(59, 130, 246, 0.05);
-    border: 1px solid rgba(59, 130, 246, 0.15);
-    border-radius: 10px;
-  }
-  
-  .blockchain-verification h4 {
-    font-size: 0.85rem;
-    color: #60a5fa;
-    margin-bottom: 0.75rem;
-  }
-  
-  .chain-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(59, 130, 246, 0.1);
-    font-size: 0.8rem;
-  }
-  
-  .chain-row:last-of-type {
-    border-bottom: none;
-  }
-  
-  .chain-row .label {
-    color: #6e7681;
-  }
-  
-  .chain-row code.small {
-    font-size: 0.65rem;
-    padding: 0.25rem 0.5rem;
-    max-width: 180px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  .chain-hint {
-    font-size: 0.7rem;
-    color: #6e7681;
-    margin-top: 0.75rem;
-    line-height: 1.5;
-  }
-  
-  .chain-hint a {
-    color: #60a5fa;
-  }
-  
-  .chain-hint em {
-    color: #22c55e;
-    font-style: normal;
-    font-weight: 600;
   }
 </style>
 
